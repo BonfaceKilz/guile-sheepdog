@@ -69,7 +69,7 @@
 	     (false-if-exception
 	      (let ((json (alist->hash-table (json-string->scm line))))
 		(when (and (hash-table? json) (anomaly? json))
-		  (unless (line-change? (hash-string line))
+		  (when (line-change? (hash-string line))
 		    (for-each (lambda (f)
 				(f line))
 			      actions)))))))

@@ -35,32 +35,45 @@
     (lambda (new)
       (let ((changed (not (string=? new last))))
         (set! last new)
-        initial-value))))
+        changed))))
+
+(define (read-last-line file)
+  (call-with-input-file file
+    (lambda (port)
+      (let* ((size (seek port 0 SEEK_END)))
+        (let loop ((pos size)
+                   (chars '()))
+          (if (zero? pos)
+              ;; start of file: reverse collected chars
+              (list->string chars)
+              (begin
+                (seek port (- pos 1) SEEK_SET)
+                (let ((c (read-char port)))
+                  (if (char=? c #\newline)
+                      ;; Skip trailing newline (if any) and return collected
+                      (list->string chars)
+                      (loop (- pos 1) (cons c chars)))))))))))
 
 (define (monitor config actions)
-  (define line-change? (make-string-change-detector ""))
   (match config
     (($ <structlog-monitor-config> log-file poll-interval)
-     (let ((port (open-file log-file "r")))
-       (seek port 0 SEEK_END)
+     (let ((line-change? (make-string-change-detector "")))
        (let loop ()
-	 (let* ((line (read-line port 'concat)))
+	 (let* ((line (read-last-line log-file)))
 	   (cond
 	    ((eof-object? line)
-	     (usleep poll-interval)
-	     (loop))
+	     #f)
 	    ((or (string-null? line) (string=? line "\n"))
-	     (loop))
+	     #f)
 	    (else
 	     (false-if-exception
 	      (let ((json (alist->hash-table (json-string->scm line))))
 		(when (and (hash-table? json) (anomaly? json))
-		  (let ((h (hash-string line))
-			(new-hash (hash-string (line-change? line))))
-		    (unless (string=? h new-hash)
-		      (for-each (lambda (f)
-				  (f line))
-				actions)))))))))
-	 (loop))))
+		  (unless (line-change? (hash-string line))
+		    (for-each (lambda (f)
+				(f line))
+			      actions)))))))
+	   (usleep poll-interval)
+	   (loop)))))
     (_
      (error "Not a matrix-config"))))

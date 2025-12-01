@@ -1,4 +1,4 @@
-(define-module (alerts matrix-chat)
+(define-module (gn alerts matrix-chat)
   #:use-module (ice-9 hash-table)
   #:use-module (ice-9 match)
   #:use-module (json)

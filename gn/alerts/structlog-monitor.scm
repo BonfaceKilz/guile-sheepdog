@@ -1,4 +1,4 @@
-(define-module (alerts structlog-monitor)
+(define-module (gn alerts structlog-monitor)
   #:use-module (hashing md5)
   #:use-module (ice-9 hash-table)
   #:use-module (ice-9 match)

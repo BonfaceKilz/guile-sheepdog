@@ -1,8 +1,8 @@
 #! /usr/bin/env guile
 !#
 
-(use-modules (alerts matrix-chat)
-	     (alerts structlog-monitor)
+(use-modules (gn alerts matrix-chat)
+	     (gn alerts structlog-monitor)
 	     (fibers)
 	     (ice-9 match)
 	     (ice-9 hash-table)

@@ -27,7 +27,7 @@
 	   (lambda (new)
 	     (unless (string=? last new)
 	       (matrix-send (log-entry->alert-html
-			     (alist->hash-table (json-string->scm last))
+			     (alist->hash-table (json-string->scm new))
 			     node app-name)
 			    room-settings)
 	       (set! last new))

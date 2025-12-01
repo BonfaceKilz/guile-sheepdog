@@ -46,19 +46,12 @@
 			 (interval (string->number (assq-ref config 'poll-interval)))
 			 (monitor-config
 			  (make-structlog-monitor-config log-file-path interval))
-			 (matrix-action
-			  (matrix-alert-action
-			   (format #f
-				   "{\"event\": \"starting up ~a: ~a logging\"}"
-				   node-name app-name)
-			   node-name app-name)))
+			 (matrix-action (matrix-alert-action "{}" node-name app-name)))
 		    (format #t "spawning fiber for ~a ~a\n" node-name app-name)
 		    (spawn-fiber (cut (monitor monitor-config (list matrix-action))))))
 		(assq-ref node 'config)))
 	     nodes)
 	    (let loop ()
-	      (usleep 50)
-	      (gc)
 	      (loop)))))))
     ((arg0 _ ...)
      (format (current-error-port) "Usage: ~a CONNECTION-SETTINGS-FILE~%" arg0)

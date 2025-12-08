@@ -1,10 +1,13 @@
 (define-module (gn alerts matrix-chat)
   #:use-module (ice-9 hash-table)
   #:use-module (ice-9 match)
+  #:use-module (ice-9 receive)
   #:use-module (json)
+  #:use-module (rnrs bytevectors)
   #:use-module (srfi srfi-9 gnu)
   #:use-module (uuid generate)
   #:use-module (web client)
+  #:use-module (web response)
   #:export (log-entry->alert-html
 	    make-matrix-config
 	    matrix-send))
@@ -35,7 +38,17 @@
 		     (format . "org.matrix.custom.html")
 		     (body . ,body-text)
 		     (formatted_body . ,body-text)))))
-    (http-put url #:body payload)))
+
+    (receive (resp-status resp-body)
+	(http-put url #:body payload)
+      (let ((status-code (response-code resp-status))
+	    (utf8-body (utf8->string resp-body)))
+	(match status-code
+	  ((? (lambda (code) (and (>= status-code 200) (< status-code 300))) code)
+	   (format #t "~a\n" utf8-body))
+	  (_
+	   (error (format #f "~a\n" utf8-body))))))))
+
 
 (define (html-escape str)
   (let loop ((chars (string->list str))

@@ -99,11 +99,9 @@
 (define* (log-entry->alert-html log-entry-hash #:optional (node #f) (app-name #f))
   (let* ((ts (hash-ref log-entry-hash "timestamp" "1970-01-01T00:00:00+03:00"))
 	 (lvl (string-upcase (hash-ref log-entry-hash "level" "info")))
-	 (evt (hash-ref log-entry-hash "event" "unknown"))
+	 (logger (hash-ref log-entry-hash "logger" #f))
 	 (msg (hash-ref log-entry-hash "message" #f))
 	 (trace (hash-ref log-entry-hash "exception" #f))
-	 (method (hash-ref log-entry-hash "method" #f))
-	 (path (hash-ref log-entry-hash "path" #f))
 	 (remote_addr (hash-ref log-entry-hash "remote_addr" #f))
 	 (user_agent (hash-ref log-entry-hash "user_agent" #f)))
     (string-append
@@ -115,11 +113,8 @@
 	 "")
      "<strong>ALERT: " lvl "</strong>\n"
      "(" ts ")<br/>\n"
-     (if method
-	 (string-append "Method: " method "<br/>\n")
-	 "")
-     (if path
-	 (string-append "Path: " path "<br/>\n")
+     (if logger
+	 (string-append "logger: " logger "<br/>\n")
 	 "")
      (if remote_addr
 	 (string-append "Remote Address: " remote_addr "<br/>\n")
@@ -127,7 +122,6 @@
      (if user_agent
 	 (string-append "User Agent: " user_agent "<br/>\n")
 	 "")
-     "Event: " (html-escape evt) "\n"
      (if msg
 	 (string-append "Message: "
 			(html-escape msg) "<br/>\n")

@@ -6,7 +6,8 @@
   #:use-module (json)
   #:use-module (rnrs bytevectors)
   #:use-module (srfi srfi-9 gnu)
-  #:export (hash-string
+  #:export (anomaly?
+	    hash-string
 	    make-structlog-monitor-config
 	    monitor))
 

@@ -13,17 +13,47 @@
 	    matrix-send))
 
 (define-immutable-record-type <matrix-config>
-  (make-matrix-config token room-id homeserver)
+  (make-matrix-config user password token room-id homeserver)
   matrix-config?
+  (user	        matrix-config-user       set-matrix-config-user)
+  (password	matrix-config-password   set-matrix-config-password)
   (token	matrix-config-token      set-matrix-config-token)
   (room-id	matrix-config-room-id    set-matrix-config-room-id)
   (homeserver	matrix-config-homeserver set-matrix-config-homeserver))
 
+(define (matrix-get-access-token config)
+  (match config
+    (($ <matrix-config> user password _ _ homeserver)
+     (let* ((access-token-uri (string-append
+			       homeserver
+			       "/_matrix/client/r0/login"))
+	    (payload (scm->json-string
+		      `((type . "m.login.password")
+			(user . ,user)
+			(password . ,password)))))
+       (display access-token-uri)
+       (newline)
+       (display payload)
+       (newline)
+       (receive (resp-status resp-body)
+	   (http-post access-token-uri
+		      #:headers '((Content-Type . "application/json"))
+		      #:body payload)
+	 (let* ((status-code (response-code resp-status))
+		(utf8-body (utf8->string resp-body)))
+	   (match status-code
+	     ((?  (lambda (code) (and (>= status-code 200) (< status-code 300))) code)
+	      (assoc-ref (json-string->scm utf8-body) "access_token"))
+	     (_
+	      (error (format #f "~a\n" utf8-body))))))))
+    (_
+     (error "Not a matrix-config"))))
+
 (define (matrix-send body-text config)
-  (let* ((txn-id (generate-string-uuid))
-	 (url (match config
-		(($ <matrix-config> token room-id homeserver)
-		 (string-append
+  (match config
+    (($ <matrix-config> user password token room-id homeserver)
+     (let* ((txn-id (generate-string-uuid))
+	    (url (string-append
 		  homeserver
 		  "/_matrix/client/r0/rooms/"
 		  room-id
@@ -31,23 +61,24 @@
 		  txn-id
 		  "?access_token="
 		  token))
-		(_
-		 (error "Not a matrix-config"))))
-	 (payload (scm->json-string
-		   `((msgtype . "m.text")
-		     (format . "org.matrix.custom.html")
-		     (body . ,body-text)
-		     (formatted_body . ,body-text)))))
-
-    (receive (resp-status resp-body)
-	(http-put url #:body payload)
-      (let ((status-code (response-code resp-status))
-	    (utf8-body (utf8->string resp-body)))
-	(match status-code
-	  ((? (lambda (code) (and (>= status-code 200) (< status-code 300))) code)
-	   (format #t "~a\n" utf8-body))
-	  (_
-	   (error (format #f "~a\n" utf8-body))))))))
+	    (payload (scm->json-string
+		      `((msgtype . "m.text")
+			(format . "org.matrix.custom.html")
+			(body . ,body-text)
+			(formatted_body . ,body-text)))))
+       (receive (resp-status resp-body)
+	   (http-put url #:body payload)
+	 (let ((status-code (response-code resp-status))
+	       (utf8-body (utf8->string resp-body)))
+	   (match status-code
+	     ((?  (lambda (code) (and (>= status-code 200) (< status-code 300))) code)
+	      (format #t "~a\n" utf8-body))
+	     (_
+	      (matrix-send
+	       body-text
+	       (make-matrix-config user password (matrix-get-access-token config) room-id homeserver))))))))
+    (_
+     (error "Not a matrix-config"))))
 
 
 (define (html-escape str)

@@ -1,59 +1,27 @@
 #! /usr/bin/env guile
 !#
 
-(use-modules (gn alerts matrix-chat)
-	     (gn alerts structlog-monitor)
-	     (fibers)
-	     (ice-9 match)
-	     (ice-9 hash-table)
-	     (json)
-	     (srfi srfi-26))
+(use-modules (ice-9 match)
+	     (gn alerts matrix-chat)
+	     (gn alerts web))
 
 (define main
   (match-lambda*
     ((_ settings-file)
      (let* ((settings (call-with-input-file settings-file read))
-	    (room (assq-ref settings 'matrix-room))
+	    (user (assq-ref settings 'matrix-user))
+	    (password (assq-ref settings 'matrix-password))
+	    (room-id (assq-ref settings 'matrix-room-id))
 	    (token (assq-ref settings 'matrix-token))
 	    (homeserver (assq-ref settings 'matrix-homeserver))
-	    (room-settings (make-matrix-config token room homeserver))
-	    (nodes (assq-ref settings 'nodes)))
-
-       (define* (matrix-alert-action
-		 initial-value
-		 #:optional
-		 (node #f) (app-name #f))
-	 (let ((last initial-value))
-	   (lambda (new)
-	     (unless (string=? last new)
-	       (matrix-send (log-entry->alert-html
-			     (alist->hash-table (json-string->scm new))
-			     node app-name)
-			    room-settings)
-	       (set! last new))
-	     last)))
-
-       (run-fibers
-	(lambda ()
-	  (let* ()
-	    (for-each
-	     (lambda (node)
-	       (for-each
-		(lambda (config)
-		  (let* ((node-name (assq-ref node 'node))
-			 (log-file-path (assq-ref config 'log-file))
-			 (app-name (assq-ref config 'app))
-			 (interval (string->number (assq-ref config 'poll-interval)))
-			 (monitor-config
-			  (make-structlog-monitor-config log-file-path interval))
-			 (matrix-action (matrix-alert-action "{}" node-name app-name)))
-		    (format #t "spawning fiber for ~a ~a\n" node-name app-name)
-		    (spawn-fiber (cut (monitor monitor-config (list matrix-action))))))
-		(assq-ref node 'config)))
-	     nodes)
-	    (let loop ()
-	      (usleep 100)
-	      (loop)))))))
+	    (node (assq-ref settings 'node))
+	    (port (string->number (assq-ref settings 'sheepdog-port))))
+       (setenv "MATRIX_TOKEN" token)
+       (setenv "ROOM_ID" room-id)
+       (setenv "HOMESERVER" homeserver)
+       (setenv "MATRIX_USER" user)
+       (setenv "MATRIX_PASSWORD" password)
+       (start-web-server "127.0.0.1" port)))
     ((arg0 _ ...)
      (format (current-error-port) "Usage: ~a CONNECTION-SETTINGS-FILE~%" arg0)
      (exit #f))))

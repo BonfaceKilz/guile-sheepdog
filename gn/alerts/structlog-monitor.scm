@@ -24,7 +24,7 @@
 (define (anomaly? log-entry-hash)
   (let ((level (hash-ref log-entry-hash "level"))
 	(event (hash-ref log-entry-hash "event" ""))
-	(msg (hash-ref log-entry-hash "msg" "")))
+	(msg (hash-ref log-entry-hash "message" "")))
     (or (member level '("error" "critical" "exception" "warning"))
 	(string-contains-ci event "fail")
 	(string-contains-ci event "error")

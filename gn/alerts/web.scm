@@ -27,7 +27,10 @@
 	 (entry (alist->hash-table payload)))
     (if (anomaly? entry)
 	(let* ((alert (log-entry->alert-html entry node app))
-	       (redis-key (string-append "guile-sheepdog_" (hash-string alert))))
+	       (alert-without-ts (begin
+				   (hash-remove! entry "timestamp")
+				   (log-entry->alert-html entry node app)))
+	       (redis-key (string-append "guile-sheepdog_" (hash-string alert-without-ts))))
 	  ;; Only send an alert if it's not in redis
 	  (unless (cached? redis-key)
 	    (setenv "MATRIX_TOKEN" (getenv "MATRIX_TOKEN"))
@@ -38,7 +41,7 @@
 			  (getenv "MATRIX_TOKEN")
 			  (getenv "ROOM_ID")
 			  (getenv "HOMESERVER")))
-	    (cache-html! alert)
+	    (cache-html! alert-without-ts)
 	    (build-json-response
 	     200 '(("status" . "Message sent to matrix")))))
 	(build-json-response

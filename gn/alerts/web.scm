@@ -1,5 +1,6 @@
 (define-module (gn alerts web)
   #:use-module (gn alerts matrix-chat)
+  #:use-module (gn alerts redis)
   #:use-module (gn alerts structlog-monitor)
   #:use-module (ice-9 hash-table)
   #:use-module (ice-9 match)
@@ -25,17 +26,21 @@
   (let* ((payload (json-string->scm (utf8->string body)))
 	 (entry (alist->hash-table payload)))
     (if (anomaly? entry)
-	(begin
-	  (setenv "MATRIX_TOKEN" (getenv "MATRIX_TOKEN"))
-	  (matrix-send (log-entry->alert-html entry node app)
-		       (make-matrix-config
-			(getenv "MATRIX_USER")
-			(getenv "MATRIX_PASSWORD")
-			(getenv "MATRIX_TOKEN")
-			(getenv "ROOM_ID")
-			(getenv "HOMESERVER")))
-	  (build-json-response
-	   200 '(("status" . "Message sent to matrix"))))
+	(let* ((alert (log-entry->alert-html entry node app))
+	       (redis-key (string-append "guile-sheepdog_" (hash-string alert))))
+	  ;; Only send an alert if it's not in redis
+	  (unless (cached? redis-key)
+	    (setenv "MATRIX_TOKEN" (getenv "MATRIX_TOKEN"))
+	    (matrix-send alert
+			 (make-matrix-config
+			  (getenv "MATRIX_USER")
+			  (getenv "MATRIX_PASSWORD")
+			  (getenv "MATRIX_TOKEN")
+			  (getenv "ROOM_ID")
+			  (getenv "HOMESERVER")))
+	    (cache-html! alert)
+	    (build-json-response
+	     200 '(("status" . "Message sent to matrix")))))
 	(build-json-response
 	 500 '(("status" . "Something went wrong"))))))
 
